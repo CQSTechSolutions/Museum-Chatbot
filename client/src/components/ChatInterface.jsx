@@ -1,26 +1,251 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PaperAirplaneIcon } from '@heroicons/react/24/solid';
-import { getMuseumInfo, getTicketPrices, getGuidedTours, getFacilities } from '../utils/museumUtils';
+import { createOrder, verifyPayment } from '../utils/api';
 
 const ChatInterface = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [message, setMessage] = useState('');
   const messagesEndRef = useRef(null);
-  const [messages, setMessages] = useState([
-    {
-      type: 'bot',
-      content: `Welcome to Museum AI Assistant! Please choose an option:
-1. Museum Hours & Location
-2. Ticket Prices
-3. Guided Tours
-4. Facilities & Amenities
-5. Parking Information
-6. Book Tickets Now 🎫
+  const [userEmail, setUserEmail] = useState('');
+  const [showInput, setShowInput] = useState(false);
+  const [bookingState, setBookingState] = useState({
+    isBooking: false,
+    selectedTicketType: null,
+    step: 'main'
+  });
 
-Enter a number (1-6) to learn more.`
+  const [messages, setMessages] = useState([{
+    type: 'bot',
+    content: 'Welcome to Museum AI Assistant! How can I help you today?',
+    options: [
+      { icon: '🎟️', text: 'Book Tickets', action: 'BOOK_TICKETS' },
+      { icon: '💰', text: 'Check Ticket Prices', action: 'CHECK_PRICES' },
+      { icon: 'ℹ️', text: 'Museum Information', action: 'MUSEUM_INFO' },
+      { icon: '🎨', text: 'Special Exhibitions', action: 'EXHIBITIONS' },
+      { icon: '🚶', text: 'Guided Tours', action: 'GUIDED_TOURS' },
+      { icon: '❌', text: 'Exit Chat', action: 'EXIT' }
+    ]
+  }]);
+
+  const getTicketPrices = () => [
+    { type: 'Adult', price: 200, ageRange: '18+ years', description: 'Full access to all exhibits' },
+    { type: 'Child', price: 100, ageRange: '5-17 years', description: 'Kid-friendly tour included' },
+    { type: 'Senior', price: 150, ageRange: '60+ years', description: 'Guided tour included' },
+    { type: 'Student', price: 150, ageRange: 'With valid ID', description: 'Special student benefits' }
+  ];
+
+  const handleOptionClick = async (action, data) => {
+    setShowInput(false);
+    
+    switch(action) {
+      case 'BOOK_TICKETS':
+        const tickets = getTicketPrices();
+        setMessages(prev => [...prev, {
+          type: 'bot',
+          content: '🎫 Please select a ticket type:',
+          options: tickets.map(ticket => ({
+            icon: '🎟️',
+            text: `${ticket.type} - ₹${ticket.price}`,
+            subtext: `${ticket.ageRange} | ${ticket.description}`,
+            action: 'SELECT_TICKET',
+            data: ticket
+          }))
+        }]);
+        break;
+
+      case 'SELECT_TICKET':
+        setBookingState({ 
+          isBooking: true, 
+          selectedTicketType: data,
+          step: 'email-input' 
+        });
+        setShowInput(true);
+        setUserEmail('');
+        setMessages(prev => [...prev, {
+          type: 'bot',
+          content: `Please enter your email address to proceed with booking:
+${data.type} Ticket
+• Price: ₹${data.price}
+• ${data.description}
+• Age Range: ${data.ageRange}`
+        }]);
+        break;
+
+      case 'CHECK_PRICES':
+        const prices = getTicketPrices();
+        setMessages(prev => [...prev, {
+          type: 'bot',
+          content: '💰 Current Ticket Prices:',
+          options: prices.map(ticket => ({
+            icon: '🎟️',
+            text: `${ticket.type} - ₹${ticket.price}`,
+            subtext: `${ticket.ageRange} | ${ticket.description}`,
+            action: 'SHOW_MAIN_MENU'
+          }))
+        }]);
+        break;
+
+      // Add other cases for remaining options
+      case 'SHOW_MAIN_MENU':
+        setMessages(prev => [...prev, {
+          type: 'bot',
+          content: 'What else would you like to know?',
+          options: messages[0].options
+        }]);
+        break;
+
+      case 'EXIT':
+        setMessages(prev => [...prev, {
+          type: 'bot',
+          content: 'Thank you for visiting! Have a great day! 👋'
+        }]);
+        setTimeout(() => setIsExpanded(false), 2000);
+        break;
     }
-  ]);
+  };
+
+  const handleEmailSubmit = async (e) => {
+    e.preventDefault();
+    if (!message.trim() || !message.includes('@')) {
+      setMessages(prev => [...prev, {
+        type: 'bot',
+        content: 'Please enter a valid email address.',
+        options: [
+          { 
+            icon: '✉️', 
+            text: 'Try Again', 
+            action: 'SELECT_TICKET',
+            data: bookingState.selectedTicketType
+          }
+        ]
+      }]);
+      return;
+    }
+
+    // Add user's email message
+    setMessages(prev => [...prev, {
+      type: 'user',
+      content: message
+    }]);
+
+    const emailToUse = message;
+    setUserEmail(emailToUse);
+    setMessage('');
+    setShowInput(false);
+    
+    // Immediately proceed with booking using the email we just got
+    try {
+      setMessages(prev => [...prev, {
+        type: 'bot',
+        content: 'Creating your order...'
+      }]);
+
+      const order = await createOrder(
+        bookingState.selectedTicketType.price,
+        `ticket_${Date.now()}`,
+        emailToUse
+      );
+
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+        amount: order.amount,
+        currency: order.currency,
+        name: "Museum Ticket",
+        description: `${bookingState.selectedTicketType.type} Ticket`,
+        order_id: order.id,
+        handler: async function(response) {
+          try {
+            setMessages(prev => [...prev, {
+              type: 'bot',
+              content: 'Verifying payment...'
+            }]);
+
+            const verification = await verifyPayment(
+              response,
+              bookingState.selectedTicketType,
+              emailToUse
+            );
+
+            if (verification.verified) {
+              setMessages(prev => [...prev, {
+                type: 'bot',
+                content: `✅ Payment successful! Your ticket has been sent to ${emailToUse}.`,
+                options: [
+                  { 
+                    icon: '🏠', 
+                    text: 'Return to Main Menu', 
+                    action: 'SHOW_MAIN_MENU' 
+                  }
+                ]
+              }]);
+              playMessageSound();
+              setBookingState({ isBooking: false, selectedTicketType: null, step: 'main' });
+            }
+          } catch (error) {
+            handlePaymentError();
+          }
+        },
+        prefill: {
+          email: emailToUse,
+          name: "",
+          contact: ""
+        },
+        theme: {
+          color: "#10B981"
+        },
+        modal: {
+          ondismiss: function() {
+            handlePaymentCancellation();
+          }
+        }
+      };
+
+      const razorpayInstance = new window.Razorpay(options);
+      razorpayInstance.open();
+    } catch (error) {
+      handlePaymentError();
+    }
+  };
+
+  // Helper functions for error handling
+  const handlePaymentError = () => {
+    setMessages(prev => [...prev, {
+      type: 'bot',
+      content: '❌ Payment failed. Would you like to try again?',
+      options: [
+        { 
+          icon: '🔄', 
+          text: 'Try Again', 
+          action: 'BOOK_TICKETS' 
+        },
+        { 
+          icon: '🏠', 
+          text: 'Main Menu', 
+          action: 'SHOW_MAIN_MENU' 
+        }
+      ]
+    }]);
+  };
+
+  const handlePaymentCancellation = () => {
+    setMessages(prev => [...prev, {
+      type: 'bot',
+      content: 'Payment cancelled. Would you like to try again?',
+      options: [
+        { 
+          icon: '🔄', 
+          text: 'Try Again', 
+          action: 'BOOK_TICKETS' 
+        },
+        { 
+          icon: '🏠', 
+          text: 'Main Menu', 
+          action: 'SHOW_MAIN_MENU' 
+        }
+      ]
+    }]);
+  };
 
   // Scroll to bottom of messages
   const scrollToBottom = () => {
@@ -39,144 +264,8 @@ Enter a number (1-6) to learn more.`
     messageSound.play().catch(e => console.log('Audio play failed:', e));
   };
 
-  const handleBooking = async (ticketType) => {
-    const options = {
-      key: 'YOUR_RAZORPAY_KEY',
-      amount: ticketType.price * 100,
-      currency: 'INR',
-      name: 'Museum Ticket',
-      description: `${ticketType.type} Ticket - ${ticketType.description}`,
-      handler: function(response) {
-        setMessages(prev => [...prev, {
-          type: 'bot',
-          content: `✅ Payment successful! Your ticket confirmation will be sent to your email shortly.
-          
-What else would you like to know?
-1. Museum Hours & Location
-2. Ticket Prices
-3. Guided Tours
-4. Facilities & Amenities
-5. Parking Information
-6. Book Tickets Now 🎫`
-        }]);
-        playMessageSound();
-      },
-      prefill: {
-        email: '',
-        contact: ''
-      },
-      theme: {
-        color: '#10B981'
-      }
-    };
-
-    const razorpay = new window.Razorpay(options);
-    razorpay.open();
-  };
-
-  const processUserQuery = (query) => {
-    const option = parseInt(query);
-    
-    switch(option) {
-      case 1: {
-        const info = getMuseumInfo();
-        return `🕒 Museum Hours & Location:\n\nWe are open ${info.contact.hours}\nLocation: ${info.location}\n\nWhat else would you like to know?\n
-1. Museum Hours & Location
-2. Ticket Prices
-3. Guided Tours
-4. Facilities & Amenities
-5. Parking Information
-6. Book Tickets Now 🎫`;
-      }
-      
-      case 2: {
-        const tickets = getTicketPrices();
-        return `🎫 Ticket Prices:\n\n${tickets.map(ticket => 
-          `${ticket.type} (${ticket.ageRange}): ₹${ticket.price}`
-        ).join('\n')}\n\nTo book tickets, select option 6.\n\nWhat else would you like to know?\n
-1. Museum Hours & Location
-2. Ticket Prices
-3. Guided Tours
-4. Facilities & Amenities
-5. Parking Information
-6. Book Tickets Now 🎫`;
-      }
-      
-      case 3: {
-        const tours = getGuidedTours();
-        return `🎯 Available Guided Tours:\n\n${tours.map(tour => 
-          `${tour.name}\n• Duration: ${tour.duration}\n• Price: ₹${tour.price}\n• Times: ${tour.schedule.join(' & ')}\n`
-        ).join('\n')}\n\nWhat else would you like to know?\n
-1. Museum Hours & Location
-2. Ticket Prices
-3. Guided Tours
-4. Facilities & Amenities
-5. Parking Information
-6. Book Tickets Now 🎫`;
-      }
-      
-      case 6: {
-        const tickets = getTicketPrices();
-        return `🎫 Select a ticket type to book:\n\n${tickets.map((ticket, index) => 
-          `${index + 1}. ${ticket.type} (${ticket.ageRange}): ₹${ticket.price}\n   ${ticket.description}`
-        ).join('\n')}\n\nEnter ticket number to proceed with booking.`;
-      }
-      
-      case 4: {
-        const facilities = getFacilities();
-        return `🏛️ Our Facilities & Amenities:\n\n${facilities.amenities.join('\n')}\n\nWhat else would you like to know?\n
-1. Museum Hours & Location
-2. Ticket Prices
-3. Guided Tours
-4. Facilities & Amenities
-5. Parking Information
-6. Book Tickets Now 🎫`;
-      }
-      
-      case 5: {
-        const facilities = getFacilities();
-        return `🅿️ Parking Information:\n\n${facilities.parking.available ? 'Parking is available' : 'Parking is not available'}\n• Rate: $${facilities.parking.hourlyRate}/hour\n• Maximum duration: ${facilities.parking.maxDuration}\n\nWhat else would you like to know?\n
-1. Museum Hours & Location
-2. Ticket Prices
-3. Guided Tours
-4. Facilities & Amenities
-5. Parking Information
-6. Book Tickets Now 🎫`;
-      }
-      
-      default:
-        return `I'm sorry, I don't understand that option. Please choose a number between 1-6:\n
-1. Museum Hours & Location
-2. Ticket Prices
-3. Guided Tours
-4. Facilities & Amenities
-5. Parking Information
-6. Book Tickets Now 🎫`;
-    }
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!message.trim()) return;
-    
-    const userMessage = message;
-    setMessages(prev => [...prev, { type: 'user', content: userMessage }]);
-    setMessage('');
-    
-    // Process the response
-    setTimeout(() => {
-      const response = processUserQuery(userMessage);
-      setMessages(prev => [...prev, {
-        type: 'bot',
-        content: response
-      }]);
-      playMessageSound(); // Only play sound for bot responses
-    }, 1000);
-  };
-
   return (
     <motion.div
-      id="chat-interface"
       initial={{ y: 100 }}
       animate={{ y: 0 }}
       className={`fixed bottom-0 right-0 mb-0 mr-4 bg-gray-900 rounded-t-2xl shadow-2xl w-[380px] transition-all duration-300 ${
@@ -219,38 +308,63 @@ What else would you like to know?
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
-                  <div className={`rounded-lg p-3 max-w-[80%] whitespace-pre-line shadow-lg ${
+                  <div className={`rounded-lg p-4 whitespace-pre-line ${
                     msg.type === 'user' 
-                      ? 'bg-gradient-to-r from-blue-500 to-emerald-500 text-white'
+                      ? 'bg-gradient-to-r from-blue-500 to-emerald-500 text-white ml-auto max-w-[80%]'
                       : 'bg-gray-800 text-gray-200 border border-gray-700'
                   }`}>
                     {msg.content}
                   </div>
+                  
+                  {msg.options && (
+                    <div className="mt-4 space-y-2">
+                      {msg.options.map((option, optIndex) => (
+                        <button
+                          key={optIndex}
+                          onClick={() => handleOptionClick(option.action, option.data)}
+                          className="w-full p-3 bg-gray-800 hover:bg-gray-700 rounded-lg text-left transition-colors duration-200 border border-gray-700"
+                        >
+                          <div className="flex items-center">
+                            <span className="text-xl mr-3">{option.icon}</span>
+                            <div className="flex-1">
+                              <div className="text-white">{option.text}</div>
+                              {option.subtext && (
+                                <div className="text-sm text-gray-400">{option.subtext}</div>
+                              )}
+                            </div>
+                            <span className="text-gray-400">›</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </motion.div>
               ))}
               <div ref={messagesEndRef} />
             </div>
-            <div className="p-4 border-t border-gray-700 mt-auto bg-gray-800 bg-opacity-50">
-              <form onSubmit={handleSubmit} className="relative">
-                <input
-                  type="text"
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Enter a number (1-6)..."
-                  className="w-full pr-12 pl-4 py-3 rounded-lg bg-gray-700 text-white border-none focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400"
-                />
-                <motion.button 
-                  type="submit"
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-gradient-to-r from-blue-500 to-emerald-500 rounded-full flex items-center justify-center text-white hover:from-blue-600 hover:to-emerald-600 transition-colors shadow-lg"
-                >
-                  <PaperAirplaneIcon className="w-4 h-4 transform rotate-90" />
-                </motion.button>
-              </form>
-            </div>
+            
+            {showInput && (
+              <div className="p-4 border-t border-gray-700 mt-auto bg-gray-800 bg-opacity-50">
+                <form onSubmit={handleEmailSubmit} className="relative">
+                  <input
+                    type="email"
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder="Enter your email..."
+                    className="w-full pr-12 pl-4 py-3 rounded-lg bg-gray-700 text-white border-none focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400"
+                  />
+                  <motion.button 
+                    type="submit"
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-gradient-to-r from-blue-500 to-emerald-500 rounded-full flex items-center justify-center text-white hover:from-blue-600 hover:to-emerald-600 transition-colors shadow-lg"
+                  >
+                    <PaperAirplaneIcon className="w-4 h-4 transform rotate-90" />
+                  </motion.button>
+                </form>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
