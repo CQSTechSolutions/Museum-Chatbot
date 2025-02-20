@@ -52,6 +52,7 @@ const ChatInterface = () => {
             data: ticket
           }))
         }]);
+        playMessageSound();
         break;
 
       case 'SELECT_TICKET':
@@ -70,6 +71,7 @@ ${data.type} Ticket
 • ${data.description}
 • Age Range: ${data.ageRange}`
         }]);
+        playMessageSound();
         break;
 
       case 'CHECK_PRICES':
@@ -84,15 +86,102 @@ ${data.type} Ticket
             action: 'SHOW_MAIN_MENU'
           }))
         }]);
+        playMessageSound();
         break;
 
-      // Add other cases for remaining options
       case 'SHOW_MAIN_MENU':
         setMessages(prev => [...prev, {
           type: 'bot',
           content: 'What else would you like to know?',
           options: messages[0].options
         }]);
+        playMessageSound();
+        break;
+
+      case 'MUSEUM_INFO':
+        setMessages(prev => [...prev, {
+          type: 'bot',
+          content: `ℹ️ Museum Information:
+
+• Opening Hours: 9:00 AM - 6:00 PM
+• Location: 123 Museum Avenue, Art District
+• Contact: +1 (555) 123-4567
+• Email: info@museum.com
+
+We are open all days except major holidays.`,
+          options: [
+            { 
+              icon: '🏠', 
+              text: 'Back to Main Menu', 
+              action: 'SHOW_MAIN_MENU' 
+            }
+          ]
+        }]);
+        playMessageSound();
+        break;
+
+      case 'EXHIBITIONS':
+        setMessages(prev => [...prev, {
+          type: 'bot',
+          content: `🎨 Current Special Exhibitions:
+
+1. Renaissance Masterpieces
+• Duration: March 1 - June 30, 2024
+• Additional Fee: ₹1000
+
+2. Contemporary Art Showcase
+• Duration: April 15 - August 15, 2024
+• Additional Fee: ₹800
+
+Book tickets to include special exhibitions!`,
+          options: [
+            { 
+              icon: '🎟️', 
+              text: 'Book Tickets', 
+              action: 'BOOK_TICKETS' 
+            },
+            { 
+              icon: '🏠', 
+              text: 'Main Menu', 
+              action: 'SHOW_MAIN_MENU' 
+            }
+          ]
+        }]);
+        playMessageSound();
+        break;
+
+      case 'GUIDED_TOURS':
+        setMessages(prev => [...prev, {
+          type: 'bot',
+          content: `🚶 Available Guided Tours:
+
+1. Art Through Ages
+• Duration: 2 hours
+• Price: ₹1500
+• Times: 10:00 AM, 2:00 PM
+• Max Group Size: 15 people
+
+2. Modern Masters
+• Duration: 1.5 hours
+• Price: ₹1200
+• Times: 11:30 AM, 3:30 PM
+• Max Group Size: 12 people
+
+Would you like to book a tour?`,
+          options: [
+            { 
+              icon: '📅', 
+              text: 'Book a Tour', 
+              action: 'BOOK_TICKETS' 
+            },
+            { 
+              icon: '🏠', 
+              text: 'Main Menu', 
+              action: 'SHOW_MAIN_MENU' 
+            }
+          ]
+        }]);
+        playMessageSound();
         break;
 
       case 'EXIT':
@@ -100,7 +189,29 @@ ${data.type} Ticket
           type: 'bot',
           content: 'Thank you for visiting! Have a great day! 👋'
         }]);
-        setTimeout(() => setIsExpanded(false), 2000);
+        playMessageSound();
+        setTimeout(() => {
+          setIsExpanded(false);
+          setMessages([{
+            type: 'bot',
+            content: 'Welcome to Museum AI Assistant! How can I help you today?',
+            options: [
+              { icon: '🎟️', text: 'Book Tickets', action: 'BOOK_TICKETS' },
+              { icon: '💰', text: 'Check Ticket Prices', action: 'CHECK_PRICES' },
+              { icon: 'ℹ️', text: 'Museum Information', action: 'MUSEUM_INFO' },
+              { icon: '🎨', text: 'Special Exhibitions', action: 'EXHIBITIONS' },
+              { icon: '🚶', text: 'Guided Tours', action: 'GUIDED_TOURS' },
+              { icon: '❌', text: 'Exit Chat', action: 'EXIT' }
+            ]
+          }]);
+          setBookingState({
+            isBooking: false,
+            selectedTicketType: null,
+            step: 'main'
+          });
+          setUserEmail('');
+          setShowInput(false);
+        }, 2000);
         break;
     }
   };
@@ -226,6 +337,7 @@ ${data.type} Ticket
         }
       ]
     }]);
+    playMessageSound();
   };
 
   const handlePaymentCancellation = () => {
@@ -245,6 +357,7 @@ ${data.type} Ticket
         }
       ]
     }]);
+    playMessageSound();
   };
 
   // Scroll to bottom of messages
@@ -256,8 +369,13 @@ ${data.type} Ticket
     scrollToBottom();
   }, [messages]);
 
-  // Audio setup
-  const messageSound = new Audio('/message.mp3');
+  // Audio setup with preloading
+  const [messageSound] = useState(new Audio('/message.mp3'));
+  
+  useEffect(() => {
+    // Preload the audio file
+    messageSound.load();
+  }, []);
 
   const playMessageSound = () => {
     messageSound.currentTime = 0;
