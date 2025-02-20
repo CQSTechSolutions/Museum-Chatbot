@@ -1,1 +1,26 @@
-@import 'tailwindcss'
+@import 'tailwindcss';
+
+/* Add these styles for the carousel */
+.custom-dot-list-style {
+  bottom: 20px !important;
+}
+
+.custom-dot-list-style button {
+  border: none;
+  background: rgba(255, 255, 255, 0.5);
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 50%;
+  margin: 0 5px;
+  padding: 0;
+  transition: all 0.3s ease;
+}
+
+.custom-dot-list-style .react-multi-carousel-dot--active button {
+  background: white;
+  transform: scale(1.2);
+}
+
+.react-multi-carousel-item {
+  padding: 0 10px;
+}
