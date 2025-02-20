@@ -331,6 +331,58 @@ Would you like to book a tour?`,
       content: message
     }]);
 
+    // Handle date input
+    if (bookingState.step === 'select-date') {
+      const dateRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+      const match = message.match(dateRegex);
+      if (!match) {
+        setMessages(prev => [...prev, {
+          type: 'bot',
+          content: 'Please enter a valid date in DD/MM/YYYY format.',
+        }]);
+        setMessage('');
+        return;
+      }
+
+      const [, day, month, year] = match;
+      const selectedDate = new Date(year, month - 1, day);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (selectedDate < today) {
+        setMessages(prev => [...prev, {
+          type: 'bot',
+          content: 'Please select a future date.',
+        }]);
+        setMessage('');
+        return;
+      }
+
+      setBookingDetails(prev => ({
+        ...prev,
+        date: selectedDate
+      }));
+      setMessage('');
+
+      // Show quantity options
+      setMessages(prev => [...prev, {
+        type: 'bot',
+        content: `Selected date: ${formatDate(selectedDate)}
+
+How many tickets would you like to book?`,
+        options: [
+          { icon: '1️⃣', text: '1 Ticket', action: 'SELECT_QUANTITY', data: 1 },
+          { icon: '2️⃣', text: '2 Tickets', action: 'SELECT_QUANTITY', data: 2 },
+          { icon: '3️⃣', text: '3 Tickets', action: 'SELECT_QUANTITY', data: 3 },
+          { icon: '4️⃣', text: '4 Tickets', action: 'SELECT_QUANTITY', data: 4 },
+          { icon: '5️⃣', text: '5+ Tickets', action: 'CUSTOM_QUANTITY' }
+        ]
+      }]);
+      playMessageSound();
+      setShowInput(false);
+      return;
+    }
+
     // Handle custom quantity input
     if (bookingState.step === 'custom-quantity') {
       const quantity = parseInt(message);
@@ -460,57 +512,6 @@ Please enter your email address to proceed with booking:`
       } catch (error) {
         handlePaymentError();
       }
-    }
-
-    // Handle date input
-    if (bookingState.step === 'select-date') {
-      const dateRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
-      const match = message.match(dateRegex);
-      if (!match) {
-        setMessages(prev => [...prev, {
-          type: 'bot',
-          content: 'Please enter a valid date in DD/MM/YYYY format.',
-        }]);
-        setMessage('');
-        return;
-      }
-
-      const [, day, month, year] = match;
-      const selectedDate = new Date(year, month - 1, day);
-      const today = new Date();
-
-      if (selectedDate < today) {
-        setMessages(prev => [...prev, {
-          type: 'bot',
-          content: 'Please select a future date.',
-        }]);
-        setMessage('');
-        return;
-      }
-
-      setBookingDetails(prev => ({
-        ...prev,
-        date: selectedDate
-      }));
-      setMessage('');
-
-      // Show quantity options
-      setMessages(prev => [...prev, {
-        type: 'bot',
-        content: `Selected date: ${formatDate(selectedDate)}
-
-How many tickets would you like to book?`,
-        options: [
-          { icon: '1️⃣', text: '1 Ticket', action: 'SELECT_QUANTITY', data: 1 },
-          { icon: '2️⃣', text: '2 Tickets', action: 'SELECT_QUANTITY', data: 2 },
-          { icon: '3️⃣', text: '3 Tickets', action: 'SELECT_QUANTITY', data: 3 },
-          { icon: '4️⃣', text: '4 Tickets', action: 'SELECT_QUANTITY', data: 4 },
-          { icon: '5️⃣', text: '5+ Tickets', action: 'CUSTOM_QUANTITY' }
-        ]
-      }]);
-      playMessageSound();
-      setShowInput(false);
-      return;
     }
   };
 
@@ -673,13 +674,25 @@ How many tickets would you like to book?`,
               <div className="p-4 border-t border-gray-700 mt-auto bg-gray-800 bg-opacity-50">
                 <form onSubmit={handleEmailSubmit} className="relative">
                   <input
-                    type={bookingState.step === 'custom-quantity' ? 'number' : 'email'}
+                    type={
+                      bookingState.step === 'custom-quantity' 
+                        ? 'number' 
+                        : bookingState.step === 'select-date'
+                        ? 'text'
+                        : 'email'
+                    }
                     value={message}
                     onChange={(e) => {
                       if (bookingState.step === 'custom-quantity') {
                         // Only allow numbers between 1-10
                         const value = e.target.value;
                         if (value === '' || (parseInt(value) >= 0 && parseInt(value) <= 10)) {
+                          setMessage(value);
+                        }
+                      } else if (bookingState.step === 'select-date') {
+                        // Allow only date format input
+                        const value = e.target.value;
+                        if (value === '' || /^[\d/]*$/.test(value)) {
                           setMessage(value);
                         }
                       } else {
@@ -691,6 +704,8 @@ How many tickets would you like to book?`,
                     placeholder={
                       bookingState.step === 'custom-quantity'
                         ? "Enter number of tickets (1-10)"
+                        : bookingState.step === 'select-date'
+                        ? "DD/MM/YYYY"
                         : "Enter your email..."
                     }
                     className="w-full pr-12 pl-4 py-3 rounded-lg bg-gray-700 text-white border-none focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400"
