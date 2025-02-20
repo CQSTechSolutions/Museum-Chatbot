@@ -15,6 +15,12 @@ const ChatInterface = () => {
     step: 'main'
   });
 
+  const [bookingDetails, setBookingDetails] = useState({
+    date: null,
+    numberOfTickets: 0,
+    selectedDate: 'custom' // 'today', 'tomorrow', or 'custom'
+  });
+
   const [messages, setMessages] = useState([{
     type: 'bot',
     content: 'Welcome to Museum AI Assistant! How can I help you today?',
@@ -34,6 +40,15 @@ const ChatInterface = () => {
     { type: 'Senior', price: 150, ageRange: '60+ years', description: 'Guided tour included' },
     { type: 'Student', price: 150, ageRange: 'With valid ID', description: 'Special student benefits' }
   ];
+
+  const formatDate = (date) => {
+    return new Date(date).toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
 
   const handleOptionClick = async (action, data) => {
     setShowInput(false);
@@ -59,17 +74,108 @@ const ChatInterface = () => {
         setBookingState({ 
           isBooking: true, 
           selectedTicketType: data,
-          step: 'email-input' 
+          step: 'select-date'
         });
-        setShowInput(true);
-        setUserEmail('');
         setMessages(prev => [...prev, {
           type: 'bot',
-          content: `Please enter your email address to proceed with booking:
-${data.type} Ticket
+          content: `You selected: ${data.type} Ticket
 • Price: ₹${data.price}
 • ${data.description}
-• Age Range: ${data.ageRange}`
+• Age Range: ${data.ageRange}
+
+When would you like to visit?`,
+          options: [
+            { 
+              icon: '📅', 
+              text: 'Today', 
+              action: 'SELECT_DATE',
+              data: 'today'
+            },
+            { 
+              icon: '📅', 
+              text: 'Tomorrow', 
+              action: 'SELECT_DATE',
+              data: 'tomorrow'
+            },
+            { 
+              icon: '📅', 
+              text: 'Choose Another Date', 
+              action: 'SELECT_DATE',
+              data: 'custom'
+            }
+          ]
+        }]);
+        playMessageSound();
+        break;
+
+      case 'SELECT_DATE':
+        let selectedDate;
+        if (data === 'today') {
+          selectedDate = new Date();
+        } else if (data === 'tomorrow') {
+          selectedDate = new Date(new Date().setDate(new Date().getDate() + 1));
+        } else {
+          setShowInput(true);
+          setMessages(prev => [...prev, {
+            type: 'bot',
+            content: 'Please enter your preferred date (DD/MM/YYYY):',
+          }]);
+          return;
+        }
+        
+        setBookingDetails(prev => ({
+          ...prev,
+          date: selectedDate,
+          selectedDate: data
+        }));
+        
+        setMessages(prev => [...prev, {
+          type: 'bot',
+          content: `Selected date: ${formatDate(selectedDate)}
+
+How many tickets would you like to book?`,
+          options: [
+            { icon: '1️⃣', text: '1 Ticket', action: 'SELECT_QUANTITY', data: 1 },
+            { icon: '2️⃣', text: '2 Tickets', action: 'SELECT_QUANTITY', data: 2 },
+            { icon: '3️⃣', text: '3 Tickets', action: 'SELECT_QUANTITY', data: 3 },
+            { icon: '4️⃣', text: '4 Tickets', action: 'SELECT_QUANTITY', data: 4 },
+            { icon: '5️⃣', text: '5+ Tickets', action: 'CUSTOM_QUANTITY' }
+          ]
+        }]);
+        playMessageSound();
+        break;
+
+      case 'SELECT_QUANTITY':
+        setBookingDetails(prev => ({
+          ...prev,
+          numberOfTickets: data
+        }));
+        setBookingState(prev => ({
+          ...prev,
+          step: 'email-input'
+        }));
+        setShowInput(true);
+        setMessages(prev => [...prev, {
+          type: 'bot',
+          content: `Great! You're booking:
+• ${data} x ${bookingState.selectedTicketType.type} Ticket${data > 1 ? 's' : ''}
+• Date: ${formatDate(bookingDetails.date)}
+• Total Price: ₹${data * bookingState.selectedTicketType.price}
+
+Please enter your email address to proceed with booking:`
+        }]);
+        playMessageSound();
+        break;
+
+      case 'CUSTOM_QUANTITY':
+        setShowInput(true);
+        setBookingState(prev => ({
+          ...prev,
+          step: 'custom-quantity'
+        }));
+        setMessages(prev => [...prev, {
+          type: 'bot',
+          content: 'Please enter the number of tickets you would like (max 10):'
         }]);
         playMessageSound();
         break;
@@ -218,104 +324,193 @@ Would you like to book a tour?`,
 
   const handleEmailSubmit = async (e) => {
     e.preventDefault();
-    if (!message.trim() || !message.includes('@')) {
-      setMessages(prev => [...prev, {
-        type: 'bot',
-        content: 'Please enter a valid email address.',
-        options: [
-          { 
-            icon: '✉️', 
-            text: 'Try Again', 
-            action: 'SELECT_TICKET',
-            data: bookingState.selectedTicketType
-          }
-        ]
-      }]);
-      return;
-    }
-
-    // Add user's email message
+    
+    // Add user's input to chat
     setMessages(prev => [...prev, {
       type: 'user',
       content: message
     }]);
 
-    const emailToUse = message;
-    setUserEmail(emailToUse);
-    setMessage('');
-    setShowInput(false);
-    
-    // Immediately proceed with booking using the email we just got
-    try {
+    // Handle custom quantity input
+    if (bookingState.step === 'custom-quantity') {
+      const quantity = parseInt(message);
+      if (isNaN(quantity) || quantity < 1 || quantity > 10 || !Number.isInteger(quantity)) {
+        setMessages(prev => [...prev, {
+          type: 'bot',
+          content: 'Please enter a valid number between 1 and 10.',
+        }]);
+        setMessage('');
+        return;
+      }
+      
+      setBookingDetails(prev => ({
+        ...prev,
+        numberOfTickets: quantity
+      }));
+
+      // Move directly to email input
+      setBookingState(prev => ({
+        ...prev,
+        step: 'email-input'
+      }));
+      setMessage('');
       setMessages(prev => [...prev, {
         type: 'bot',
-        content: 'Creating your order...'
+        content: `Great! You're booking:
+• ${quantity} x ${bookingState.selectedTicketType.type} Ticket${quantity > 1 ? 's' : ''}
+• Date: ${formatDate(bookingDetails.date)}
+• Total Price: ₹${quantity * bookingState.selectedTicketType.price}
+
+Please enter your email address to proceed with booking:`
       }]);
+      playMessageSound();
+      return;
+    }
 
-      const order = await createOrder(
-        bookingState.selectedTicketType.price,
-        `ticket_${Date.now()}`,
-        emailToUse
-      );
+    // Handle email input
+    if (bookingState.step === 'email-input') {
+      if (!message.trim() || !message.includes('@')) {
+        setMessages(prev => [...prev, {
+          type: 'bot',
+          content: 'Please enter a valid email address.',
+        }]);
+        setMessage('');
+        return;
+      }
 
-      const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-        amount: order.amount,
-        currency: order.currency,
-        name: "Museum Ticket",
-        description: `${bookingState.selectedTicketType.type} Ticket`,
-        order_id: order.id,
-        handler: async function(response) {
-          try {
-            setMessages(prev => [...prev, {
-              type: 'bot',
-              content: 'Verifying payment...'
-            }]);
+      const emailToUse = message;
+      setUserEmail(emailToUse);
+      setMessage('');
+      setShowInput(false);
 
-            const verification = await verifyPayment(
-              response,
-              bookingState.selectedTicketType,
-              emailToUse
-            );
+      // Process the booking with all details
+      try {
+        setMessages(prev => [...prev, {
+          type: 'bot',
+          content: 'Creating your order...'
+        }]);
+        playMessageSound();
 
-            if (verification.verified) {
+        const order = await createOrder(
+          bookingState.selectedTicketType.price * bookingDetails.numberOfTickets,
+          `ticket_${Date.now()}`,
+          emailToUse,
+          {
+            date: bookingDetails.date,
+            quantity: bookingDetails.numberOfTickets
+          }
+        );
+
+        const options = {
+          key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+          amount: order.amount,
+          currency: order.currency,
+          name: "Museum Ticket",
+          description: `${bookingState.selectedTicketType.type} Ticket`,
+          order_id: order.id,
+          handler: async function(response) {
+            try {
               setMessages(prev => [...prev, {
                 type: 'bot',
-                content: `✅ Payment successful! Your ticket has been sent to ${emailToUse}.`,
-                options: [
-                  { 
-                    icon: '🏠', 
-                    text: 'Return to Main Menu', 
-                    action: 'SHOW_MAIN_MENU' 
-                  }
-                ]
+                content: 'Verifying payment...'
               }]);
-              playMessageSound();
-              setBookingState({ isBooking: false, selectedTicketType: null, step: 'main' });
-            }
-          } catch (error) {
-            handlePaymentError();
-          }
-        },
-        prefill: {
-          email: emailToUse,
-          name: "",
-          contact: ""
-        },
-        theme: {
-          color: "#10B981"
-        },
-        modal: {
-          ondismiss: function() {
-            handlePaymentCancellation();
-          }
-        }
-      };
 
-      const razorpayInstance = new window.Razorpay(options);
-      razorpayInstance.open();
-    } catch (error) {
-      handlePaymentError();
+              const verification = await verifyPayment(
+                response,
+                bookingState.selectedTicketType,
+                emailToUse
+              );
+
+              if (verification.verified) {
+                setMessages(prev => [...prev, {
+                  type: 'bot',
+                  content: `✅ Payment successful! Your ticket has been sent to ${emailToUse}.`,
+                  options: [
+                    { 
+                      icon: '🏠', 
+                      text: 'Return to Main Menu', 
+                      action: 'SHOW_MAIN_MENU' 
+                    }
+                  ]
+                }]);
+                playMessageSound();
+                setBookingState({ isBooking: false, selectedTicketType: null, step: 'main' });
+              }
+            } catch (error) {
+              handlePaymentError();
+            }
+          },
+          prefill: {
+            email: emailToUse,
+            name: "",
+            contact: ""
+          },
+          theme: {
+            color: "#10B981"
+          },
+          modal: {
+            ondismiss: function() {
+              handlePaymentCancellation();
+            }
+          }
+        };
+
+        const razorpayInstance = new window.Razorpay(options);
+        razorpayInstance.open();
+      } catch (error) {
+        handlePaymentError();
+      }
+    }
+
+    // Handle date input
+    if (bookingState.step === 'select-date') {
+      const dateRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+      const match = message.match(dateRegex);
+      if (!match) {
+        setMessages(prev => [...prev, {
+          type: 'bot',
+          content: 'Please enter a valid date in DD/MM/YYYY format.',
+        }]);
+        setMessage('');
+        return;
+      }
+
+      const [, day, month, year] = match;
+      const selectedDate = new Date(year, month - 1, day);
+      const today = new Date();
+
+      if (selectedDate < today) {
+        setMessages(prev => [...prev, {
+          type: 'bot',
+          content: 'Please select a future date.',
+        }]);
+        setMessage('');
+        return;
+      }
+
+      setBookingDetails(prev => ({
+        ...prev,
+        date: selectedDate
+      }));
+      setMessage('');
+
+      // Show quantity options
+      setMessages(prev => [...prev, {
+        type: 'bot',
+        content: `Selected date: ${formatDate(selectedDate)}
+
+How many tickets would you like to book?`,
+        options: [
+          { icon: '1️⃣', text: '1 Ticket', action: 'SELECT_QUANTITY', data: 1 },
+          { icon: '2️⃣', text: '2 Tickets', action: 'SELECT_QUANTITY', data: 2 },
+          { icon: '3️⃣', text: '3 Tickets', action: 'SELECT_QUANTITY', data: 3 },
+          { icon: '4️⃣', text: '4 Tickets', action: 'SELECT_QUANTITY', data: 4 },
+          { icon: '5️⃣', text: '5+ Tickets', action: 'CUSTOM_QUANTITY' }
+        ]
+      }]);
+      playMessageSound();
+      setShowInput(false);
+      return;
     }
   };
 
@@ -466,10 +661,26 @@ Would you like to book a tour?`,
               <div className="p-4 border-t border-gray-700 mt-auto bg-gray-800 bg-opacity-50">
                 <form onSubmit={handleEmailSubmit} className="relative">
                   <input
-                    type="email"
+                    type={bookingState.step === 'custom-quantity' ? 'number' : 'email'}
                     value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Enter your email..."
+                    onChange={(e) => {
+                      if (bookingState.step === 'custom-quantity') {
+                        // Only allow numbers between 1-10
+                        const value = e.target.value;
+                        if (value === '' || (parseInt(value) >= 0 && parseInt(value) <= 10)) {
+                          setMessage(value);
+                        }
+                      } else {
+                        setMessage(e.target.value);
+                      }
+                    }}
+                    min={bookingState.step === 'custom-quantity' ? "1" : undefined}
+                    max={bookingState.step === 'custom-quantity' ? "10" : undefined}
+                    placeholder={
+                      bookingState.step === 'custom-quantity'
+                        ? "Enter number of tickets (1-10)"
+                        : "Enter your email..."
+                    }
                     className="w-full pr-12 pl-4 py-3 rounded-lg bg-gray-700 text-white border-none focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400"
                   />
                   <motion.button 
