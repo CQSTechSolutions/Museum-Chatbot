@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 
-const Hero = () => {
+const Hero = ({ onStartChat }) => {
   return (
     <div className="relative min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white">
       <div className="absolute inset-0">
@@ -23,7 +23,7 @@ const Hero = () => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               className="bg-gradient-to-r from-blue-500 to-emerald-500 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:from-blue-600 hover:to-emerald-600 transition-all shadow-lg"
-              onClick={() => document.getElementById('chat-interface').scrollIntoView({ behavior: 'smooth' })}
+              onClick={onStartChat}
             >
               Start Chatting
             </motion.button>

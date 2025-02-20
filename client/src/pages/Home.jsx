@@ -7,7 +7,7 @@ const Home = () => {
   const [isChatExpanded, setIsChatExpanded] = useState(false);
   const chatRef = useRef();
 
-  const handleBookNowClick = () => {
+  const handleChatOpen = () => {
     setIsChatExpanded(true);
     // Scroll to chat if needed
     chatRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -15,8 +15,8 @@ const Home = () => {
 
   return (
     <div className="min-h-screen bg-gray-900">
-      <Navbar onBookNowClick={handleBookNowClick} />
-      <Hero />
+      <Navbar onBookNowClick={handleChatOpen} />
+      <Hero onStartChat={handleChatOpen} />
       <div className="max-w-7xl mx-auto px-4 py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           <div className="bg-gray-800 p-8 rounded-2xl border border-gray-700 hover:border-blue-500 transition-colors">
