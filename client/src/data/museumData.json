@@ -1,0 +1,142 @@
+{
+  "museum": {
+    "name": "National Museum of Art & History",
+    "established": 1975,
+    "location": "123 Museum Avenue, Art District",
+    "contact": {
+      "email": "info@museum.com",
+      "phone": "+1 (555) 123-4567",
+      "hours": "9:00 AM - 6:00 PM"
+    }
+  },
+  "booking": {
+    "ticketTypes": [
+      {
+        "type": "Adult",
+        "ageRange": "18-64",
+        "price": 2500,
+        "description": "Full access to all exhibits"
+      },
+      {
+        "type": "Child",
+        "ageRange": "5-17",
+        "price": 1250,
+        "description": "Full access to all exhibits"
+      },
+      {
+        "type": "Senior",
+        "ageRange": "65+",
+        "price": 1800,
+        "description": "Full access to all exhibits"
+      },
+      {
+        "type": "Student",
+        "ageRange": "with valid ID",
+        "price": 2000,
+        "description": "Full access to all exhibits"
+      }
+    ],
+    "guidedTours": [
+      {
+        "name": "Art Through Ages",
+        "duration": "2 hours",
+        "price": 1500,
+        "maxParticipants": 15,
+        "schedule": ["10:00 AM", "2:00 PM"]
+      },
+      {
+        "name": "Modern Masters",
+        "duration": "1.5 hours",
+        "price": 1200,
+        "maxParticipants": 12,
+        "schedule": ["11:30 AM", "3:30 PM"]
+      }
+    ],
+    "specialExhibits": [
+      {
+        "name": "Renaissance Masterpieces",
+        "startDate": "2024-03-01",
+        "endDate": "2024-06-30",
+        "additionalFee": 1000
+      },
+      {
+        "name": "Contemporary Art Showcase",
+        "startDate": "2024-04-15",
+        "endDate": "2024-08-15",
+        "additionalFee": 800
+      }
+    ]
+  },
+  "facilities": {
+    "amenities": [
+      "Wheelchair accessible",
+      "Audio guides",
+      "Café",
+      "Gift shop",
+      "Coat check",
+      "Free Wi-Fi"
+    ],
+    "parking": {
+      "available": true,
+      "hourlyRate": 500,
+      "maxDuration": "8 hours"
+    }
+  },
+  "exhibits": {
+    "permanent": [
+      {
+        "name": "Classical Art Gallery",
+        "floor": 1,
+        "description": "Ancient Greek and Roman art collections"
+      },
+      {
+        "name": "Modern Art Wing",
+        "floor": 2,
+        "description": "20th century masterpieces"
+      },
+      {
+        "name": "Sculpture Garden",
+        "floor": "Ground",
+        "description": "Outdoor exhibition of contemporary sculptures"
+      }
+    ],
+    "interactive": [
+      {
+        "name": "Digital Art Lab",
+        "description": "Interactive digital art experiences",
+        "ageRecommendation": "8+"
+      },
+      {
+        "name": "Children's Discovery Zone",
+        "description": "Hands-on art activities for kids",
+        "ageRecommendation": "4-12"
+      }
+    ]
+  },
+  "membership": {
+    "levels": [
+      {
+        "name": "Individual",
+        "price": 7500,
+        "duration": "1 year",
+        "benefits": [
+          "Unlimited free admission",
+          "10% discount at gift shop",
+          "Member-only events",
+          "Quarterly newsletter"
+        ]
+      },
+      {
+        "name": "Family",
+        "price": 12000,
+        "duration": "1 year",
+        "benefits": [
+          "Admission for 2 adults and children under 18",
+          "15% discount at gift shop",
+          "Member-only events",
+          "Priority booking for special exhibits"
+        ]
+      }
+    ]
+  }
+} 
