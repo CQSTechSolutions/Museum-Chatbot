@@ -3,8 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { PaperAirplaneIcon } from '@heroicons/react/24/solid';
 import { createOrder, verifyPayment } from '../utils/api';
 
-const ChatInterface = () => {
-  const [isExpanded, setIsExpanded] = useState(false);
+const ChatInterface = ({ isInitiallyExpanded = false }) => {
+  const [isExpanded, setIsExpanded] = useState(isInitiallyExpanded);
   const [message, setMessage] = useState('');
   const messagesEndRef = useRef(null);
   const [userEmail, setUserEmail] = useState('');
@@ -576,6 +576,18 @@ How many tickets would you like to book?`,
     messageSound.currentTime = 0;
     messageSound.play().catch(e => console.log('Audio play failed:', e));
   };
+
+  // Add this method to expose the expand functionality
+  const expandChat = () => {
+    setIsExpanded(true);
+    // Optionally start with booking flow
+    handleOptionClick('BOOK_TICKETS');
+  };
+
+  // Make the component controllable from outside
+  useEffect(() => {
+    setIsExpanded(isInitiallyExpanded);
+  }, [isInitiallyExpanded]);
 
   return (
     <motion.div

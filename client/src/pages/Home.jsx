@@ -1,10 +1,21 @@
-import React from "react";
+import React, { useState, useRef } from "react";
 import Hero from "../components/Hero";
 import ChatInterface from "../components/ChatInterface";
+import Navbar from "../components/Navbar";
 
 const Home = () => {
+  const [isChatExpanded, setIsChatExpanded] = useState(false);
+  const chatRef = useRef();
+
+  const handleBookNowClick = () => {
+    setIsChatExpanded(true);
+    // Scroll to chat if needed
+    chatRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   return (
     <div className="min-h-screen bg-gray-900">
+      <Navbar onBookNowClick={handleBookNowClick} />
       <Hero />
       <div className="max-w-7xl mx-auto px-4 py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -22,7 +33,9 @@ const Home = () => {
           </div>
         </div>
       </div>
-      <ChatInterface />
+      <div ref={chatRef}>
+        <ChatInterface isInitiallyExpanded={isChatExpanded} />
+      </div>
     </div>
   );
 };
