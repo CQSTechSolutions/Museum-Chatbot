@@ -101,23 +101,70 @@ router.post('/verify-payment', async (req, res) => {
       // Generate ticket PDF
       const pdfBuffer = await generateTicketPDF(ticket);
       
-      // Send email with ticket
+      // Enhanced email template
       const mailOptions = {
         from: process.env.EMAIL_USER,
         to: email,
-        subject: 'Your Museum Ticket Confirmation',
+        subject: '🎫 Your Museum Visit Confirmation',
         html: `
-          <h1>Thank you for your purchase!</h1>
-          <p>Your ticket details:</p>
-          <ul>
-            <li>Ticket Type: ${ticketDetails.type}</li>
-            <li>Price: ₹${ticketDetails.price}</li>
-            <li>Valid for: ${ticketDetails.ageRange}</li>
-          </ul>
-          <p>Please find your ticket attached.</p>
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+              .header { background: linear-gradient(to right, #3B82F6, #10B981); padding: 20px; color: white; text-align: center; border-radius: 10px 10px 0 0; }
+              .content { background: #f8f9fa; padding: 20px; border-radius: 0 0 10px 10px; }
+              .ticket-details { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+              .footer { text-align: center; margin-top: 20px; font-size: 0.9em; color: #666; }
+              .button { background: #3B82F6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; margin: 20px 0; }
+              .qr-note { background: #e9ecef; padding: 10px; border-radius: 6px; margin-top: 20px; font-size: 0.9em; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1>Thank You for Your Purchase!</h1>
+                <p>Your museum visit is confirmed</p>
+              </div>
+              <div class="content">
+                <h2>🎫 Ticket Details</h2>
+                <div class="ticket-details">
+                  <p><strong>Ticket Type:</strong> ${ticketDetails.type}</p>
+                  <p><strong>Price:</strong> ₹${ticketDetails.price}</p>
+                  <p><strong>Valid for:</strong> ${ticketDetails.ageRange}</p>
+                  <p><strong>Order ID:</strong> ${razorpay_order_id}</p>
+                  <p><strong>Purchase Date:</strong> ${new Date().toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  })}</p>
+                </div>
+                
+                <div class="qr-note">
+                  📱 Your ticket is attached to this email. Please show it at the entrance.
+                </div>
+
+                <h3>📍 Museum Location</h3>
+                <p>123 Museum Avenue, Art District<br>Opening Hours: 9:00 AM - 6:00 PM</p>
+
+                <h3>📞 Need Help?</h3>
+                <p>Contact us at:<br>
+                Email: info@museum.com<br>
+                Phone: +1 (555) 123-4567</p>
+
+                <div class="footer">
+                  <p>Thank you for choosing our museum. We look forward to your visit!</p>
+                  <small>This is an automated email. Please do not reply.</small>
+                </div>
+              </div>
+            </div>
+          </body>
+          </html>
         `,
         attachments: [{
-          filename: 'museum-ticket.pdf',
+          filename: `museum-ticket-${razorpay_order_id}.pdf`,
           content: pdfBuffer
         }]
       };
