@@ -1,24 +1,54 @@
 const mongoose = require('mongoose');
 
 const ticketSchema = new mongoose.Schema({
-  type: {
+  // Personal Information
+  name: {
     type: String,
-    required: true
-  },
-  price: {
-    type: Number,
-    required: true
-  },
-  ageRange: String,
-  description: String,
-  purchaseDate: {
-    type: Date,
-    default: Date.now
+    default: 'Shivam Gupta'
   },
   email: {
     type: String,
     required: true
   },
+  phone: {
+    type: String,
+    default: 'Not Provided'
+  },
+
+  // Ticket Information
+  type: {
+    type: String,
+    required: true,
+    enum: ['Adult', 'Child', 'Senior', 'Student']
+  },
+  price: {
+    type: Number,
+    required: true
+  },
+  ageRange: {
+    type: String,
+    required: true,
+    enum: ['18+ years', '5-17 years', '60+ years', 'Valid Student ID']
+  },
+  ageDescription: {
+    type: String,
+    required: true
+  },
+  visitDate: {
+    type: Date,
+    required: true
+  },
+  purchaseDate: {
+    type: Date,
+    default: Date.now
+  },
+  numberOfTickets: {
+    type: Number,
+    required: true,
+    min: 1
+  },
+
+  // Payment Information
   paymentId: {
     type: String,
     required: true

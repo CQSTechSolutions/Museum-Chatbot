@@ -70,7 +70,9 @@ router.post('/verify-payment', async (req, res) => {
       razorpay_payment_id, 
       razorpay_signature,
       ticketDetails,
-      email 
+      email,
+      name = 'Guest Visitor',
+      phone = 'Not Provided'
     } = req.body;
     
     const sign = razorpay_order_id + "|" + razorpay_payment_id;
@@ -89,17 +91,41 @@ router.post('/verify-payment', async (req, res) => {
         }
       );
 
-      // Create ticket record
+      // Set default visit date to tomorrow if not provided
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(10, 0, 0, 0); // Set to 10 AM
+
+      const ageRangeInfo = getAgeRange(ticketDetails.type);
+      
+      // Create ticket record with all details
       const ticket = await Ticket.create({
-        ...ticketDetails,
+        // Personal Information
+        // name: name || 'Guest Visitor',
         email,
+        // phone: phone || 'Not Provided',
+        
+        // Ticket Information
+        type: ticketDetails.type,
+        price: ticketDetails.price,
+        ageRange: ageRangeInfo.range,
+        ageDescription: ageRangeInfo.description,
+        visitDate: ticketDetails.visitDate || tomorrow,
+        numberOfTickets: ticketDetails.numberOfTickets || 1,
+        
+        // Payment Information
         paymentId: razorpay_payment_id,
         orderId: razorpay_order_id,
         status: 'confirmed'
       });
 
-      // Generate ticket PDF
-      const pdfBuffer = await generateTicketPDF(ticket);
+      // Generate ticket PDF with full age range info
+      const pdfBuffer = await generateTicketPDF({
+        ...ticket.toObject(),
+        ageRangeInfo,
+        visitDate: ticket.visitDate,
+        purchaseDate: ticket.purchaseDate
+      });
       
       // Enhanced email template
       const mailOptions = {
@@ -130,15 +156,29 @@ router.post('/verify-payment', async (req, res) => {
               <div class="content">
                 <h2>🎫 Ticket Details</h2>
                 <div class="ticket-details">
+                  <h3>Visitor Information</h3>
+                  <p><strong>Email:</strong> ${email}</p>
+                <h3>Ticket Information</h3>
                   <p><strong>Ticket Type:</strong> ${ticketDetails.type}</p>
+                  <p><strong>Number of Tickets:</strong> ${ticket.numberOfTickets}</p>
                   <p><strong>Price:</strong> ₹${ticketDetails.price}</p>
-                  <p><strong>Valid for:</strong> ${ticketDetails.ageRange}</p>
+                  <p><strong>Age Category:</strong> ${ageRangeInfo.range}</p>
+                  <p><strong>Age Requirements:</strong> ${ageRangeInfo.description}</p>
+                  <p><strong>Visit Date:</strong> ${ticket.visitDate.toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}</p>
+
+                  <h3>Payment Information</h3>
                   <p><strong>Order ID:</strong> ${razorpay_order_id}</p>
-                  <p><strong>Purchase Date:</strong> ${new Date().toLocaleDateString('en-US', { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
+                  <p><strong>Payment ID:</strong> ${razorpay_payment_id}</p>
+                  <p><strong>Purchase Date:</strong> ${ticket.purchaseDate.toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
                   })}</p>
                 </div>
                 
@@ -187,5 +227,28 @@ router.post('/verify-payment', async (req, res) => {
     res.status(500).json({ error: 'Payment verification failed' });
   }
 });
+
+// Helper function to get standardized age range with description
+function getAgeRange(ticketType) {
+  const ticketDetails = {
+    'Adult': {
+      range: '18+ years',
+      description: 'Valid for visitors aged 18 and above'
+    },
+    'Child': {
+      range: '5-17 years',
+      description: 'Valid for children between 5 to 17 years'
+    },
+    'Senior': {
+      range: '60+ years',
+      description: 'Valid for senior citizens aged 60 and above'
+    },
+    'Student': {
+      range: 'Valid Student ID',
+      description: 'Must present valid student identification'
+    }
+  };
+  return ticketDetails[ticketType] || { range: 'Not specified', description: '' };
+}
 
 module.exports = router; 
